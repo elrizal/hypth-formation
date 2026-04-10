@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypothesis generation decision tree</title>
+<style>
+  body {
+    margin: 0;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e8e6df; }
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 4px 0;
+    color: inherit;
+  }
+  p.subtitle {
+    font-size: 13px;
+    color: #888780;
+    margin: 0 0 24px 0;
+  }
+  svg { display: block; width: 100%; max-width: 680px; margin: 0 auto; }
+
+  /* Color ramps — light mode */
+  .c-purple rect, .c-purple circle, .c-purple ellipse { fill: #EEEDFE; stroke: #534AB7; }
+  .c-purple .th { fill: #3C3489; }
+  .c-purple .ts { fill: #534AB7; }
+
+  .c-teal rect, .c-teal circle, .c-teal ellipse { fill: #E1F5EE; stroke: #0F6E56; }
+  .c-teal .th { fill: #085041; }
+  .c-teal .ts { fill: #0F6E56; }
+
+  .c-coral rect, .c-coral circle, .c-coral ellipse { fill: #FAECE7; stroke: #993C1D; }
+  .c-coral .th { fill: #712B13; }
+  .c-coral .ts { fill: #993C1D; }
+
+  .c-blue rect, .c-blue circle, .c-blue ellipse { fill: #E6F1FB; stroke: #185FA5; }
+  .c-blue .th { fill: #0C447C; }
+  .c-blue .ts { fill: #185FA5; }
+
+  .c-amber rect, .c-amber circle, .c-amber ellipse { fill: #FAEEDA; stroke: #854F0B; }
+  .c-amber .th { fill: #633806; }
+  .c-amber .ts { fill: #854F0B; }
+
+  .c-gray rect, .c-gray circle, .c-gray ellipse { fill: #F1EFE8; stroke: #5F5E5A; }
+  .c-gray .th { fill: #444441; }
+  .c-gray .ts { fill: #5F5E5A; }
+
+  /* Unclassed text */
+  .th { font-size: 14px; font-weight: 500; fill: #1a1a1a; }
+  .ts { font-size: 12px; font-weight: 400; fill: #5F5E5A; }
+
+  /* Arrow lines */
+  .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+
+  /* Dark mode overrides */
+  @media (prefers-color-scheme: dark) {
+    .c-purple rect, .c-purple circle, .c-purple ellipse { fill: #3C3489; stroke: #AFA9EC; }
+    .c-purple .th { fill: #CECBF6; }
+    .c-purple .ts { fill: #AFA9EC; }
+
+    .c-teal rect, .c-teal circle, .c-teal ellipse { fill: #085041; stroke: #5DCAA5; }
+    .c-teal .th { fill: #9FE1CB; }
+    .c-teal .ts { fill: #5DCAA5; }
+
+    .c-coral rect, .c-coral circle, .c-coral ellipse { fill: #712B13; stroke: #F0997B; }
+    .c-coral .th { fill: #F5C4B3; }
+    .c-coral .ts { fill: #F0997B; }
+
+    .c-blue rect, .c-blue circle, .c-blue ellipse { fill: #0C447C; stroke: #85B7EB; }
+    .c-blue .th { fill: #B5D4F4; }
+    .c-blue .ts { fill: #85B7EB; }
+
+    .c-amber rect, .c-amber circle, .c-amber ellipse { fill: #633806; stroke: #EF9F27; }
+    .c-amber .th { fill: #FAC775; }
+    .c-amber .ts { fill: #EF9F27; }
+
+    .c-gray rect, .c-gray circle, .c-gray ellipse { fill: #444441; stroke: #B4B2A9; }
+    .c-gray .th { fill: #D3D1C7; }
+    .c-gray .ts { fill: #B4B2A9; }
+
+    .th { fill: #e8e6df; }
+    .ts { fill: #9c9a92; }
+    .arr { stroke: #9c9a92; }
+  }
+
+  .node { cursor: pointer; }
+  .node:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+<h1>Hypothesis generation decision tree</h1>
+<p class="subtitle">From data signal to test-ready hypothesis — for Stamps.com &amp; ShipStation A/B testing</p>
+
+<svg viewBox="0 0 680 1580" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Hypothesis generation decision tree</title>
+  <desc>A decision tree guiding CRO teams from data signals through problem framing, hypothesis type selection, variant scoping, and readiness checks before submitting a test.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- Phase rail labels -->
+  <text class="ts" x="18" y="90" transform="rotate(-90,18,90)">SIGNAL</text>
+  <text class="ts" x="18" y="295" transform="rotate(-90,18,295)">DIAGNOSE</text>
+  <text class="ts" x="18" y="560" transform="rotate(-90,18,560)">FRAME</text>
+  <text class="ts" x="18" y="830" transform="rotate(-90,18,830)">SCOPE</text>
+  <text class="ts" x="18" y="1120" transform="rotate(-90,18,1120)">VALIDATE</text>
+  <text class="ts" x="18" y="1390" transform="rotate(-90,18,1390)">SUBMIT</text>
+
+  <!-- Phase dividers -->
+  <line x1="36" y1="170" x2="648" y2="170" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 4"/>
+  <line x1="36" y1="420" x2="648" y2="420" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 4"/>
+  <line x1="36" y1="700" x2="648" y2="700" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 4"/>
+  <line x1="36" y1="970" x2="648" y2="970" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 4"/>
+  <line x1="36" y1="1255" x2="648" y2="1255" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 4"/>
+
+  <!-- 1 — Signal source -->
+  <g class="node c-gray">
+    <rect x="200" y="30" width="280" height="90" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="62" text-anchor="middle" dominant-baseline="central">Identify the signal</text>
+    <text class="ts" x="340" y="84" text-anchor="middle" dominant-baseline="central">Analytics drop · heatmap gap · user research</text>
+    <text class="ts" x="340" y="100" text-anchor="middle" dominant-baseline="central">session replay · support ticket · lost-deal data</text>
+  </g>
+  <line x1="340" y1="120" x2="340" y2="182" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- 2 — Signal type gate -->
+  <g class="node c-purple">
+    <rect x="200" y="182" width="280" height="68" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="210" text-anchor="middle" dominant-baseline="central">What kind of signal?</text>
+    <text class="ts" x="340" y="230" text-anchor="middle" dominant-baseline="central">Classify before framing</text>
+  </g>
+  <path d="M200 216 L100 216 L100 294" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="148" y="210" text-anchor="middle">Friction</text>
+  <line x1="340" y1="250" x2="340" y2="294" class="arr" marker-end="url(#arrow)"/>
+  <text class="ts" x="356" y="276">Drop-off</text>
+  <path d="M480 216 L580 216 L580 294" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="532" y="210" text-anchor="middle">Missed value</text>
+
+  <!-- 3 — Three diagnostic nodes -->
+  <g class="node c-coral">
+    <rect x="44" y="294" width="112" height="80" rx="8" stroke-width="0.5"/>
+    <text class="th" x="100" y="320" text-anchor="middle" dominant-baseline="central">Friction</text>
+    <text class="ts" x="100" y="340" text-anchor="middle" dominant-baseline="central">Form errors, slow</text>
+    <text class="ts" x="100" y="356" text-anchor="middle" dominant-baseline="central">load, confusing UI</text>
+  </g>
+  <g class="node c-coral">
+    <rect x="228" y="294" width="224" height="80" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="320" text-anchor="middle" dominant-baseline="central">Drop-off</text>
+    <text class="ts" x="340" y="340" text-anchor="middle" dominant-baseline="central">Scroll depth low, rage clicks,</text>
+    <text class="ts" x="340" y="356" text-anchor="middle" dominant-baseline="central">high bounce, short session</text>
+  </g>
+  <g class="node c-coral">
+    <rect x="524" y="294" width="112" height="80" rx="8" stroke-width="0.5"/>
+    <text class="th" x="580" y="320" text-anchor="middle" dominant-baseline="central">Missed value</text>
+    <text class="ts" x="580" y="340" text-anchor="middle" dominant-baseline="central">Users land, read,</text>
+    <text class="ts" x="580" y="356" text-anchor="middle" dominant-baseline="central">leave unconvinced</text>
+  </g>
+  <line x1="100" y1="374" x2="100" y2="432" stroke="#888780" stroke-width="0.8"/>
+  <line x1="340" y1="374" x2="340" y2="432" stroke="#888780" stroke-width="0.8"/>
+  <line x1="580" y1="374" x2="580" y2="432" stroke="#888780" stroke-width="0.8"/>
+  <line x1="100" y1="432" x2="580" y2="432" stroke="#888780" stroke-width="0.8"/>
+  <line x1="340" y1="432" x2="340" y2="462" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- 4 — Page type gate -->
+  <g class="node c-purple">
+    <rect x="200" y="462" width="280" height="68" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="490" text-anchor="middle" dominant-baseline="central">What page type?</text>
+    <text class="ts" x="340" y="510" text-anchor="middle" dominant-baseline="central">Context shapes the lever</text>
+  </g>
+  <path d="M200 496 L100 496 L100 572" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="148" y="490" text-anchor="middle">Landing</text>
+  <line x1="340" y1="530" x2="340" y2="572" class="arr" marker-end="url(#arrow)"/>
+  <text class="ts" x="356" y="555">Pricing</text>
+  <path d="M480 496 L580 496 L580 572" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="532" y="490" text-anchor="middle">Checkout</text>
+
+  <!-- 5 — Page-type lever boxes -->
+  <g class="node c-teal">
+    <rect x="44" y="572" width="112" height="96" rx="8" stroke-width="0.5"/>
+    <text class="th" x="100" y="596" text-anchor="middle" dominant-baseline="central">Landing levers</text>
+    <text class="ts" x="100" y="616" text-anchor="middle" dominant-baseline="central">Hero headline,</text>
+    <text class="ts" x="100" y="632" text-anchor="middle" dominant-baseline="central">value prop clarity,</text>
+    <text class="ts" x="100" y="648" text-anchor="middle" dominant-baseline="central">CTA above fold</text>
+  </g>
+  <g class="node c-teal">
+    <rect x="228" y="572" width="224" height="96" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="596" text-anchor="middle" dominant-baseline="central">Pricing levers</text>
+    <text class="ts" x="340" y="616" text-anchor="middle" dominant-baseline="central">Plan layout, anchor pricing,</text>
+    <text class="ts" x="340" y="632" text-anchor="middle" dominant-baseline="central">feature comparison,</text>
+    <text class="ts" x="340" y="648" text-anchor="middle" dominant-baseline="central">trial vs buy framing</text>
+  </g>
+  <g class="node c-teal">
+    <rect x="524" y="572" width="112" height="96" rx="8" stroke-width="0.5"/>
+    <text class="th" x="580" y="596" text-anchor="middle" dominant-baseline="central">Checkout levers</text>
+    <text class="ts" x="580" y="616" text-anchor="middle" dominant-baseline="central">Field count,</text>
+    <text class="ts" x="580" y="632" text-anchor="middle" dominant-baseline="central">trust signals,</text>
+    <text class="ts" x="580" y="648" text-anchor="middle" dominant-baseline="central">progress indicator</text>
+  </g>
+  <line x1="100" y1="668" x2="100" y2="712" stroke="#888780" stroke-width="0.8"/>
+  <line x1="340" y1="668" x2="340" y2="712" stroke="#888780" stroke-width="0.8"/>
+  <line x1="580" y1="668" x2="580" y2="712" stroke="#888780" stroke-width="0.8"/>
+  <line x1="100" y1="712" x2="580" y2="712" stroke="#888780" stroke-width="0.8"/>
+  <line x1="340" y1="712" x2="340" y2="742" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- 6 — Hypothesis type gate -->
+  <g class="node c-purple">
+    <rect x="190" y="742" width="300" height="68" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="770" text-anchor="middle" dominant-baseline="central">Hypothesis type?</text>
+    <text class="ts" x="340" y="790" text-anchor="middle" dominant-baseline="central">What kind of change to test</text>
+  </g>
+  <path d="M190 776 L80 776 L80 852" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="133" y="770" text-anchor="middle">Copy</text>
+  <path d="M256 810 L256 852" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="272" y="838">Layout</text>
+  <path d="M424 810 L424 852" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="440" y="838">Social proof</text>
+  <path d="M490 776 L600 776 L600 852" fill="none" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <text class="ts" x="547" y="770" text-anchor="middle">Flow</text>
+
+  <!-- 7 — Four hypothesis type nodes -->
+  <g class="node c-blue">
+    <rect x="44" y="852" width="130" height="84" rx="8" stroke-width="0.5"/>
+    <text class="th" x="109" y="876" text-anchor="middle" dominant-baseline="central">Copy</text>
+    <text class="ts" x="109" y="896" text-anchor="middle" dominant-baseline="central">Headline, CTA text,</text>
+    <text class="ts" x="109" y="912" text-anchor="middle" dominant-baseline="central">benefit framing</text>
+  </g>
+  <g class="node c-blue">
+    <rect x="194" y="852" width="130" height="84" rx="8" stroke-width="0.5"/>
+    <text class="th" x="259" y="876" text-anchor="middle" dominant-baseline="central">Layout</text>
+    <text class="ts" x="259" y="896" text-anchor="middle" dominant-baseline="central">Element order,</text>
+    <text class="ts" x="259" y="912" text-anchor="middle" dominant-baseline="central">visual hierarchy</text>
+  </g>
+  <g class="node c-blue">
+    <rect x="344" y="852" width="130" height="84" rx="8" stroke-width="0.5"/>
+    <text class="th" x="409" y="876" text-anchor="middle" dominant-baseline="central">Social proof</text>
+    <text class="ts" x="409" y="896" text-anchor="middle" dominant-baseline="central">Testimonials, logos,</text>
+    <text class="ts" x="409" y="912" text-anchor="middle" dominant-baseline="central">ratings, case studies</text>
+  </g>
+  <g class="node c-blue">
+    <rect x="494" y="852" width="130" height="84" rx="8" stroke-width="0.5"/>
+    <text class="th" x="559" y="876" text-anchor="middle" dominant-baseline="central">Flow</text>
+    <text class="ts" x="559" y="896" text-anchor="middle" dominant-baseline="central">Step count, modal</text>
+    <text class="ts" x="559" y="912" text-anchor="middle" dominant-baseline="central">vs inline, redirect</text>
+  </g>
+  <line x1="109" y1="936" x2="109" y2="982" stroke="#888780" stroke-width="0.8"/>
+  <line x1="259" y1="936" x2="259" y2="982" stroke="#888780" stroke-width="0.8"/>
+  <line x1="409" y1="936" x2="409" y2="982" stroke="#888780" stroke-width="0.8"/>
+  <line x1="559" y1="936" x2="559" y2="982" stroke="#888780" stroke-width="0.8"/>
+  <line x1="109" y1="982" x2="559" y2="982" stroke="#888780" stroke-width="0.8"/>
+  <line x1="340" y1="982" x2="340" y2="1012" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- 8 — Hypothesis structure -->
+  <g class="node c-gray">
+    <rect x="190" y="1012" width="300" height="84" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="1040" text-anchor="middle" dominant-baseline="central">Write hypothesis statement</text>
+    <text class="ts" x="340" y="1060" text-anchor="middle" dominant-baseline="central">If [change], then [metric] will [direction]</text>
+    <text class="ts" x="340" y="1076" text-anchor="middle" dominant-baseline="central">because [mechanism]</text>
+  </g>
+  <line x1="340" y1="1096" x2="340" y2="1126" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- 9 — Testability gate -->
+  <g class="node c-purple">
+    <rect x="190" y="1126" width="300" height="68" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="1154" text-anchor="middle" dominant-baseline="central">Is it testable?</text>
+    <text class="ts" x="340" y="1174" text-anchor="middle" dominant-baseline="central">One change, measurable metric</text>
+  </g>
+  <line x1="190" y1="1160" x2="100" y2="1160" class="arr" stroke="#BA7517" marker-end="url(#arrow)"/>
+  <text class="ts" x="143" y="1153" text-anchor="middle">No</text>
+  <g class="node c-amber">
+    <rect x="44" y="1136" width="56" height="48" rx="8" stroke-width="0.5"/>
+    <text class="th" x="72" y="1156" text-anchor="middle" dominant-baseline="central">Rework</text>
+    <text class="ts" x="72" y="1172" text-anchor="middle" dominant-baseline="central">Too broad</text>
+  </g>
+  <path d="M44 1160 L36 1160 L36 1054 L190 1054" fill="none" stroke="#BA7517" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <line x1="340" y1="1194" x2="340" y2="1224" class="arr" stroke="#3B6D11" marker-end="url(#arrow)"/>
+  <text class="ts" x="353" y="1213">Yes</text>
+
+  <!-- 10 — Priority score gate -->
+  <g class="node c-purple">
+    <rect x="190" y="1224" width="300" height="68" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="1252" text-anchor="middle" dominant-baseline="central">Priority score</text>
+    <text class="ts" x="340" y="1272" text-anchor="middle" dominant-baseline="central">Impact × confidence ÷ effort</text>
+  </g>
+  <line x1="190" y1="1258" x2="100" y2="1258" class="arr" stroke="#888780" marker-end="url(#arrow)"/>
+  <text class="ts" x="143" y="1251" text-anchor="middle">Low</text>
+  <g class="node c-gray">
+    <rect x="44" y="1234" width="56" height="48" rx="8" stroke-width="0.5"/>
+    <text class="th" x="72" y="1254" text-anchor="middle" dominant-baseline="central">Backlog</text>
+    <text class="ts" x="72" y="1270" text-anchor="middle" dominant-baseline="central">Queue later</text>
+  </g>
+  <line x1="340" y1="1292" x2="340" y2="1322" class="arr" stroke="#3B6D11" marker-end="url(#arrow)"/>
+  <text class="ts" x="353" y="1311">High</text>
+
+  <!-- 11 — Traffic / MDE check -->
+  <g class="node c-purple">
+    <rect x="190" y="1322" width="300" height="68" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="1350" text-anchor="middle" dominant-baseline="central">Sufficient traffic?</text>
+    <text class="ts" x="340" y="1370" text-anchor="middle" dominant-baseline="central">Sample size for expected MDE</text>
+  </g>
+  <line x1="490" y1="1356" x2="580" y2="1356" class="arr" stroke="#BA7517" marker-end="url(#arrow)"/>
+  <text class="ts" x="537" y="1349" text-anchor="middle">No</text>
+  <g class="node c-amber">
+    <rect x="522" y="1332" width="124" height="48" rx="8" stroke-width="0.5"/>
+    <text class="th" x="584" y="1352" text-anchor="middle" dominant-baseline="central">Wait or widen</text>
+    <text class="ts" x="584" y="1368" text-anchor="middle" dominant-baseline="central">Adjust MDE or scope</text>
+  </g>
+  <line x1="340" y1="1390" x2="340" y2="1420" class="arr" stroke="#3B6D11" marker-end="url(#arrow)"/>
+  <text class="ts" x="353" y="1409">Yes</text>
+
+  <!-- 12 — Submit -->
+  <g class="node c-teal">
+    <rect x="190" y="1420" width="300" height="100" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="1450" text-anchor="middle" dominant-baseline="central">Submit to test queue</text>
+    <text class="ts" x="340" y="1470" text-anchor="middle" dominant-baseline="central">Signal · page · type · statement</text>
+    <text class="ts" x="340" y="1486" text-anchor="middle" dominant-baseline="central">primary metric · MDE · priority score</text>
+    <text class="ts" x="340" y="1502" text-anchor="middle" dominant-baseline="central">→ enters AI variant generation</text>
+  </g>
+
+  <!-- Legend -->
+  <rect x="44" y="1545" width="12" height="12" rx="3" fill="#AFA9EC"/>
+  <text class="ts" x="62" y="1554" dominant-baseline="central">Decision gate</text>
+  <rect x="160" y="1545" width="12" height="12" rx="3" fill="#F0997B"/>
+  <text class="ts" x="178" y="1554" dominant-baseline="central">Diagnostic</text>
+  <rect x="256" y="1545" width="12" height="12" rx="3" fill="#5DCAA5"/>
+  <text class="ts" x="274" y="1554" dominant-baseline="central">Lever / output</text>
+  <rect x="368" y="1545" width="12" height="12" rx="3" fill="#85B7EB"/>
+  <text class="ts" x="386" y="1554" dominant-baseline="central">Hypothesis type</text>
+  <rect x="502" y="1545" width="12" height="12" rx="3" fill="#FAC775"/>
+  <text class="ts" x="520" y="1554" dominant-baseline="central">Rework / backlog</text>
+</svg>
+
+</body>
+</html>
